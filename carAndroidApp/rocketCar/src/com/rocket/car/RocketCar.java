@@ -10,7 +10,12 @@ import org.achartengine.renderer.XYMultipleSeriesRenderer;
 import org.achartengine.renderer.XYSeriesRenderer;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
@@ -19,7 +24,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-public class RocketCar extends Activity {
+public class RocketCar extends Activity implements SensorEventListener {
 	/** The main dataset that includes all the series that go into a chart. */
 	  private XYMultipleSeriesDataset mDataset = new XYMultipleSeriesDataset();
 	  /** The main renderer that includes all the renderers customizing a chart. */
@@ -39,6 +44,9 @@ public class RocketCar extends Activity {
 	  /** The chart view that displays the data. */
 	  private GraphicalView mChartView;
 
+	  private SensorManager mSensorManager;
+	  private Sensor mAccelerometer;
+	  
 	  @Override
 	  protected void onSaveInstanceState(Bundle outState) {
 	    super.onSaveInstanceState(outState);
@@ -63,7 +71,17 @@ public class RocketCar extends Activity {
 	  protected void onCreate(Bundle savedInstanceState) {
 	    super.onCreate(savedInstanceState);
 	    setContentView(R.layout.xy_chart);
-
+	    //Sensor Management
+	    mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+	    if (mSensorManager != null)
+	    {
+	    	mAccelerometer =  mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	    	mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+	    }
+	    else
+	    {
+	    	Toast.makeText(RocketCar.this, "No Sensor Service", Toast.LENGTH_SHORT).show();
+	    }
 	    // the top part of the UI components for adding new data points
 	    mX = (EditText) findViewById(R.id.xValue);
 	    mY = (EditText) findViewById(R.id.yValue);
@@ -132,6 +150,8 @@ public class RocketCar extends Activity {
 
 	  protected void onResume() {
 	    super.onResume();
+	    //Sensor Management
+	    mSensorManager.registerListener(this, mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
 	    if (mChartView == null) {
 	      LinearLayout layout = (LinearLayout) findViewById(R.id.chart);
 	      mChartView = ChartFactory.getLineChartView(this, mDataset, mRenderer);
@@ -163,6 +183,11 @@ public class RocketCar extends Activity {
 	      mChartView.repaint();
 	    }
 	  }
+	  protected void onPause() {
+		  super.onPause();
+		  //Sensor Management
+		  mSensorManager.unregisterListener(this);
+	  }
 
 	  /**
 	   * Enable or disable the add data to series widgets
@@ -174,4 +199,14 @@ public class RocketCar extends Activity {
 	    mY.setEnabled(enabled);
 	    mAdd.setEnabled(enabled);
 	  }
+
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void onSensorChanged(SensorEvent event) {
+		// TODO Auto-generated method stub
+		
+	}
 }
