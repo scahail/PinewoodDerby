@@ -65,7 +65,16 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  private float grav_z = SensorManager.GRAVITY_EARTH;
 	  private long timecount = 0;
 	  private String filename = Environment.getExternalStorageDirectory()+"/rocketCar";
-	  private int LevelCount = 0;
+	  private float old_value = 0;
+	  private boolean mInitializedOld = false;
+	  
+	  //Launch Detection Params
+	  private float mNominalVal = 115;
+	  private int mAngleCount = 0;
+	  private int mLevelCount = 0;
+	  private boolean mLevel = false;
+	  private boolean mReadyToDrop = false;
+	  private boolean mRocketFired = false;
 	  
 	  @Override
 	  protected void onSaveInstanceState(Bundle outState) {
@@ -96,7 +105,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	    if (mSensorManager != null)
 	    {
 	    	mAccelerometer =  mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-	    	mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+	    	mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 	    }
 	    else
 	    {
@@ -178,7 +187,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  protected void onResume() {
 	    super.onResume();
 	    //Sensor Management
-	    mSensorManager.registerListener(this, mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
+	    mSensorManager.registerListener(this, mAccelerometer,SensorManager.SENSOR_DELAY_GAME);
 	    if (mChartView == null) {
 	      LinearLayout layout = (LinearLayout) findViewById(R.id.chart);
 	      mChartView = ChartFactory.getLineChartView(this, mDataset, mRenderer);
@@ -205,7 +214,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	        setSeriesWidgetsEnabled(true);
 	        mChartView.repaint();
 	      }
-	      playSound();
+	      playSound(3000,1);
 	      //Initializing File
 	      writeData("x,y,z\r\n",filename);
 
@@ -236,10 +245,28 @@ public class RocketCar extends Activity implements SensorEventListener {
 	      mChartView.repaint();
 	    }
 	  }
-	  protected void playSound()
+	  protected void playSound(int duration,int type)
 	  {
 		  final ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100);
-	      tg.startTone(ToneGenerator.TONE_PROP_BEEP,200);
+	      switch(type)
+	      {
+	    	  case 0:
+	    		  tg.startTone(ToneGenerator.TONE_PROP_BEEP,duration);
+	    		  break;
+	    	  case 1:
+	    		  tg.startTone(ToneGenerator.TONE_CDMA_DIAL_TONE_LITE,duration);
+	    		  break;
+	    	  case 2:
+	    		  tg.startTone(ToneGenerator.TONE_CDMA_LOW_L,duration);
+	    		  break;
+	    	  case 3:
+	    		  tg.startTone(ToneGenerator.TONE_CDMA_HIGH_L,duration);
+	    		  break;
+	    	  default:
+	    		  tg.startTone(ToneGenerator.TONE_PROP_BEEP,duration);
+	    		  break;
+	      }
+		  
 	  }
 	  protected void onPause() {
 		  super.onPause();
@@ -307,9 +334,62 @@ public class RocketCar extends Activity implements SensorEventListener {
 		 float z = event.values[2] - grav_z;
 		 */
 		float x = event.values[0];
-		float y = (-event.values[1])+180;
+		float y = (-event.values[1]);
+		mXG.setText("  ");
+		mYG.setText(String.valueOf(y)+"  ");
+		mZG.setText("  ");
 		float z = event.values[2];
-		
+		if (!mInitializedOld)
+		{
+			old_value = y;
+			mInitializedOld = true;
+		}
+		//Get the steady State of Car before drop
+		if(y > 100 && y < 130 && !mReadyToDrop && mAngleCount < 0)
+		{
+			mAngleCount = 0;
+		}
+		if (Math.abs(y-mNominalVal) < 5)
+		{
+			mAngleCount++;
+		}
+		else
+		{
+			mAngleCount--;
+		}
+		if (mAngleCount > 20)
+		{
+			if(!mReadyToDrop)
+			{
+				playSound(200,0);
+				playSound(200,0);
+				playSound(200,0);
+				mReadyToDrop = true;
+				mRocketFired = false;
+			}
+		}
+		if (mReadyToDrop)
+		{
+			if((y-mNominalVal) > 20)
+			{
+				mLevelCount++;
+			}
+			else
+			{
+				mLevelCount--;
+			}
+			if(mLevelCount > 10)
+			{
+				mLevel = true;
+				//Check for primed
+				if(!mRocketFired)
+				{
+					playSound(2000,3);
+					mRocketFired = true;
+					mReadyToDrop = false;
+				}
+			}
+		}
 		
 		// add a new data point to the current series
 		mCurrentSeries = mDataset.getSeriesAt(0);
