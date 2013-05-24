@@ -3,8 +3,14 @@ package com.rocket.car;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.Calendar;
 
 import org.achartengine.ChartFactory;
@@ -25,8 +31,10 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
@@ -47,6 +55,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  /** Button for creating a new series of data. */
 	  private Button mNewSeries;
 	  
+	  private TextView mSocketOut;
 	  /** The chart view that displays the data. */
 	  private GraphicalView mChartView;
 	  
@@ -73,6 +82,10 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  private boolean mLevel = false;
 	  private boolean mReadyToDrop = false;
 	  private boolean mRocketFired = false;
+	  
+	  //Socket Listening Params
+	  private NetworkTask mNetTask;
+	  private Button mConnectButton;
 	  
 	  @Override
 	  protected void onSaveInstanceState(Bundle outState) {
@@ -112,6 +125,16 @@ public class RocketCar extends Activity implements SensorEventListener {
 	    Calendar c = Calendar.getInstance();
 	    filename += String.valueOf(c.get(Calendar.HOUR))+"_"+String.valueOf(c.get(Calendar.MINUTE))+"_"+String.valueOf(c.get(Calendar.SECOND))+".txt";
 	    
+	    //Setup Network Task
+	    mConnectButton = (Button) findViewById(R.id.sockConnect);
+	    mConnectButton.setOnClickListener(new View.OnClickListener() {
+		      public void onClick(View v) {
+		    	  mNetTask = new NetworkTask();
+		  	      mNetTask.execute();
+		      }
+		    });
+	    mSocketOut = (TextView) findViewById(R.id.sockOut);
+	    
 	    //Gravity output texts
 	    mXG = (TextView) findViewById(R.id.xG);
 	    mYG = (TextView) findViewById(R.id.yG);
@@ -132,23 +155,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	    mNewSeries = (Button) findViewById(R.id.new_series);
 	    mNewSeries.setOnClickListener(new View.OnClickListener() {
 	      public void onClick(View v) {
-	        String seriesTitle = "Series " + (mDataset.getSeriesCount() + 1);
-	        // create a new series of data
-	        XYSeries series = new XYSeries(seriesTitle);
-	        mDataset.addSeries(series);
-	        mCurrentSeries = series;
-	        // create a new renderer for the new series
-	        XYSeriesRenderer renderer = new XYSeriesRenderer();
-	        mRenderer.addSeriesRenderer(renderer);
-	        // set some renderer properties
-	        renderer.setPointStyle(PointStyle.CIRCLE);
-	        renderer.setFillPoints(true);
-	        renderer.setDisplayChartValues(true);
-	        renderer.setDisplayChartValuesDistance(10);
-	        renderer.setColor(Color.GREEN);
-	        mCurrentRenderer = renderer;
-	        setSeriesWidgetsEnabled(true);
-	        mChartView.repaint();
+	    	  mNetTask.SendDataToNetwork("Hello Moto");
 	      }
 	    });
 	  }
@@ -277,6 +284,10 @@ public class RocketCar extends Activity implements SensorEventListener {
               e.printStackTrace();
           }
       }
+	public void mLog(String s)
+	{
+		writeData(s+"\r\n",filename);
+	}
 
 	public void onAccuracyChanged(Sensor sensor, int accuracy) {
 		// TODO Auto-generated method stub
@@ -378,5 +389,101 @@ public class RocketCar extends Activity implements SensorEventListener {
         // repaint the chart such as the newly added point to be visible
         mChartView.repaint();
         timecount++;
+	}
+	
+	//Network Socket Task
+	public class NetworkTask extends AsyncTask<Void, byte[], Boolean> {
+        Socket nsocket; //Network Socket
+        InputStream nis; //Network Input Stream
+        OutputStream nos; //Network Output Stream
+
+        @Override
+        protected void onPreExecute() {
+            mLog("onPreExecute");
+        }
+
+        @Override
+        protected Boolean doInBackground(Void... params) { //This runs on a different thread
+            boolean result = false;
+            try {
+            	mLog("doInBackground: Creating socket");
+                SocketAddress sockaddr = new InetSocketAddress("10.226.34.69", 50007);
+                nsocket = new Socket();
+                nsocket.connect(sockaddr, 10000); //10 second connection timeout
+                if (nsocket.isConnected()) { 
+                    nis = nsocket.getInputStream();
+                    nos = nsocket.getOutputStream();
+                    mLog("doInBackground: Socket created, streams assigned");
+                    mLog("doInBackground: Waiting for inital data...");
+                    byte[] buffer = new byte[4096];
+                    int read = nis.read(buffer, 0, 4096); //This is blocking
+                    while(read != -1){
+                        byte[] tempdata = new byte[read];
+                        System.arraycopy(buffer, 0, tempdata, 0, read);
+                        publishProgress(tempdata);
+                        mLog("doInBackground: Got some data");
+                        read = nis.read(buffer, 0, 4096); //This is blocking
+                        writeData("Got Some Bytes"+String.valueOf(read),filename);
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                mLog("doInBackground: IOException");
+                result = true;
+            } catch (Exception e) {
+                e.printStackTrace();
+                mLog("doInBackground: Exception");
+                result = true;
+            } finally {
+                try {
+                    nis.close();
+                    nos.close();
+                    nsocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                mLog("doInBackground: Finished");
+            }
+            return result;
+        }
+
+        public void SendDataToNetwork(String cmd) { //You run this from the main thread.
+            try {
+                if (nsocket.isConnected()) {
+                	mLog("SendDataToNetwork: Writing received message to socket");
+                    nos.write(cmd.getBytes());
+                } else {
+                	mLog("SendDataToNetwork: Cannot send message. Socket is closed");
+                }
+            } catch (Exception e) {
+            	mLog("SendDataToNetwork: Message send failed. Caught an exception");
+            }
+        }
+
+        @Override
+        protected void onProgressUpdate(byte[]... values) {
+            if (values.length > 0) {
+            	mLog("onProgressUpdate: " + values[0].length + " bytes received.");
+            }
+        }
+        @Override
+        protected void onCancelled() {
+        	mLog("Cancelled.");
+        }
+        @Override
+        protected void onPostExecute(Boolean result) {
+            if (result) {
+            	mLog("onPostExecute: Completed with an Error.");
+            } else {
+            	mLog("onPostExecute: Completed.");
+            }
+        }
+    }
+	protected void onDestroy()
+	{
+		super.onDestroy();
+		mNetTask.cancel(true);
 	}
 }

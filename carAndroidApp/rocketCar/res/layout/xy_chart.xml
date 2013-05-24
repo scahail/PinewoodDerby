@@ -5,6 +5,7 @@
 
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
               android:text="@string/add_values"/>
+    <TextView android:id="@+id/sockOut" android:text="TextView" android:layout_width="match_parent" android:layout_height="200dip"></TextView>
     <LinearLayout android:id="@+id/linearLayout1" android:layout_width="match_parent" android:layout_height="wrap_content">
         <TextView android:text="TextView" android:id="@+id/xG" android:layout_width="wrap_content" android:layout_height="wrap_content"></TextView>
         <TextView android:text="TextView" android:id="@+id/yG" android:layout_width="wrap_content" android:layout_height="wrap_content"></TextView>
@@ -18,6 +19,7 @@
                   android:layout_width="fill_parent" android:layout_height="wrap_content">
         <Button android:id="@+id/new_series" android:text="@string/new_series"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <Button android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/sockConnect" android:text="@string/Connect"></Button>
     </LinearLayout>
 
 </LinearLayout>
