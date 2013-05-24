@@ -29,6 +29,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.AsyncTask;
@@ -43,7 +46,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class RocketCar extends Activity implements SensorEventListener {
+public class RocketCar extends Activity implements SensorEventListener, LocationListener{
 	/** The main dataset that includes all the series that go into a chart. */
 	  private XYMultipleSeriesDataset mDataset = new XYMultipleSeriesDataset();
 	  /** The main renderer that includes all the renderers customizing a chart. */
@@ -79,14 +82,21 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  private float mNominalVal = 115;
 	  private int mAngleCount = 0;
 	  private int mLevelCount = 0;
-	  private boolean mLevel = false;
 	  private boolean mReadyToDrop = false;
 	  private boolean mRocketFired = false;
 	  
 	  //Socket Listening Params
 	  private NetworkTask mNetTask;
 	  private Button mConnectButton;
+	  private boolean mSocketOpened = false;
 	  
+	  //GPS
+	  private LocationManager mLocationManager;
+	  
+	  //Velocity Calculation info
+	  //private Sensor mLinearAcceleration;
+	  //mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+	  //mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 	  @Override
 	  protected void onSaveInstanceState(Bundle outState) {
 	    super.onSaveInstanceState(outState);
@@ -116,7 +126,8 @@ public class RocketCar extends Activity implements SensorEventListener {
 	    if (mSensorManager != null)
 	    {
 	    	mAccelerometer =  mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-	    	mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_UI);
+	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), SensorManager.SENSOR_DELAY_NORMAL);
 	    }
 	    else
 	    {
@@ -125,12 +136,16 @@ public class RocketCar extends Activity implements SensorEventListener {
 	    Calendar c = Calendar.getInstance();
 	    filename += String.valueOf(c.get(Calendar.HOUR))+"_"+String.valueOf(c.get(Calendar.MINUTE))+"_"+String.valueOf(c.get(Calendar.SECOND))+".txt";
 	    
+	    mLocationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+	    
 	    //Setup Network Task
 	    mConnectButton = (Button) findViewById(R.id.sockConnect);
 	    mConnectButton.setOnClickListener(new View.OnClickListener() {
 		      public void onClick(View v) {
 		    	  mNetTask = new NetworkTask();
 		  	      mNetTask.execute();
+		  	      mSocketOpened =true;
+		  	      mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, RocketCar.this);
 		      }
 		    });
 	    mSocketOut = (TextView) findViewById(R.id.sockOut);
@@ -296,99 +311,85 @@ public class RocketCar extends Activity implements SensorEventListener {
 
 	public void onSensorChanged(SensorEvent event) {
 		// TODO Auto-generated method stub
-
-
-		  // Isolate the force of gravity with the low-pass filter.
-		/*
-		grav_x = alpha * grav_x + (1 - alpha) * event.values[0];
-		grav_y = alpha * grav_y + (1 - alpha) * event.values[1];
-		grav_z = alpha * grav_z + (1 - alpha) * event.values[2];
-		mXG.setText(String.valueOf(grav_x)+"  ");
-		mYG.setText(String.valueOf(grav_y)+"  ");
-		mZG.setText(String.valueOf(grav_z)+"  ");
-		  // Remove the gravity contribution with the high-pass filter.
-		 float x = event.values[0] - grav_x;
-		 float y = event.values[1] - grav_y;
-		 float z = event.values[2] - grav_z;
-		 */
-		float x = event.values[0];
-		float y = (-event.values[1]);
-		mXG.setText(String.valueOf(mAngleCount)+"  ");
-		mYG.setText(String.valueOf(y)+"  ");
-		mZG.setText(String.valueOf(mLevelCount)+"  ");
-		float z = event.values[2];
-		if (!mInitializedOld)
+		if (event.sensor.getType() == Sensor.TYPE_ORIENTATION)
 		{
-			old_value = y;
-			mInitializedOld = true;
-		}
-		//Get the steady State of Car before drop
-		if(y > 100 && y < 130 && !mReadyToDrop && mAngleCount < 0)
-		{
-			mAngleCount = 0;
-		}
-		if (Math.abs(y-mNominalVal) < 5)
-		{
-			mAngleCount++;
-		}
-		else
-		{
-			mAngleCount--;
-		}
-		if (mAngleCount > 20)
-		{
-			if(!mReadyToDrop)
+			float x = event.values[0];
+			float y = (-event.values[1]);
+			mXG.setText(String.valueOf(mAngleCount)+"  ");
+			mYG.setText(String.valueOf(y)+"  ");
+			mZG.setText(String.valueOf(mLevelCount)+"  ");
+			float z = event.values[2];
+			if (!mInitializedOld)
 			{
-				playSound(200,0);
-				mReadyToDrop = true;
-				mCurrentSeries = mDataset.getSeriesAt(2);
-		        mCurrentSeries.add(timecount, y);
-				if(mRocketFired)
-					mRocketFired = false;
+				old_value = y;
+				mInitializedOld = true;
 			}
-		}
-		if (mReadyToDrop)
-		{
-			if((y-mNominalVal) > 20)
+			//Get the steady State of Car before drop
+			if(y > 100 && y < 130 && !mReadyToDrop && mAngleCount < 0)
 			{
-					mLevelCount++;
+				mAngleCount = 0;
+			}
+			if (Math.abs(y-mNominalVal) < 5)
+			{
+				mAngleCount++;
 			}
 			else
 			{
-				mLevelCount--;
-				if(mLevelCount < 0)
-					mLevelCount = 0;
+				mAngleCount--;
 			}
-			if(mLevelCount > 10)
+			if (mAngleCount > 20)
 			{
-				mLevel = true;
-				//Check for primed
-				if(!mRocketFired)
+				if(!mReadyToDrop)
 				{
-					playSound(3000,3);
-					mRocketFired = true;
-					mCurrentSeries = mDataset.getSeriesAt(1);
+					playSound(200,0);
+					mReadyToDrop = true;
+					mCurrentSeries = mDataset.getSeriesAt(2);
 			        mCurrentSeries.add(timecount, y);
-			        mAngleCount = 0;
-			        mLevelCount = 0;
-					mReadyToDrop = false;
+					if(mRocketFired)
+						mRocketFired = false;
 				}
 			}
+			if (mReadyToDrop)
+			{
+				if((y-mNominalVal) > 20)
+				{
+						mLevelCount++;
+				}
+				else
+				{
+					mLevelCount--;
+					if(mLevelCount < 0)
+						mLevelCount = 0;
+				}
+				if(mLevelCount > 10)
+				{
+					//Check for primed
+					if(!mRocketFired)
+					{
+						playSound(1000,3);
+						mRocketFired = true;
+						mCurrentSeries = mDataset.getSeriesAt(1);
+				        mCurrentSeries.add(timecount, y);
+				        mAngleCount = 0;
+				        mLevelCount = 0;
+						mReadyToDrop = false;
+					}
+				}
+				// add a new data point to the current series
+				//mCurrentSeries = mDataset.getSeriesAt(0);
+		        //mCurrentSeries.add(timecount, y);
+		      //writeData(String.valueOf(x)+","+String.valueOf(y)+","+String.valueOf(z)+"\r\n",filename);
+		        // repaint the chart such as the newly added point to be visible
+		        //mChartView.repaint();
+		        timecount++;
+			}
 		}
-		
-		// add a new data point to the current series
-		mCurrentSeries = mDataset.getSeriesAt(0);
-        mCurrentSeries.add(timecount, y);
-        /*
-        mCurrentSeries = mDataset.getSeriesAt(1);
-        mCurrentSeries.add(timecount, y);
-        mCurrentSeries = mDataset.getSeriesAt(2);
-        mCurrentSeries.add(timecount, z);
-       	*/
-        //writeData(String.valueOf(x)+","+String.valueOf(y)+","+String.valueOf(z)+"\r\n",filename);
-        // repaint the chart such as the newly added point to be visible
-        mChartView.repaint();
-        timecount++;
+		if(event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
+		{
+			mSocketOut.setText("Accel:"+String.valueOf(event.values[1]*0.453592));//Acceleration * mass of car
+			if(mSocketOpened)
+				mNetTask.SendDataToNetwork(String.valueOf(event.values[1]*0.453592));
+		}
 	}
 	
 	//Network Socket Task
@@ -485,5 +486,27 @@ public class RocketCar extends Activity implements SensorEventListener {
 	{
 		super.onDestroy();
 		mNetTask.cancel(true);
+	}
+
+	public void onLocationChanged(Location location) {
+		String newLatitude = Double.toString(location.getLatitude());
+		String newLongitude = Double.toString(location.getLongitude());
+		if(mSocketOpened)
+			mNetTask.SendDataToNetwork("LAT:"+newLatitude+" LONG:"+newLongitude);
+	}
+
+	public void onProviderDisabled(String provider) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void onProviderEnabled(String provider) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void onStatusChanged(String provider, int status, Bundle extras) {
+		// TODO Auto-generated method stub
+		
 	}
 }
