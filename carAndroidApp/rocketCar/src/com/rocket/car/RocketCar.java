@@ -54,6 +54,9 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  private EditText mY;
 	  /** The chart view that displays the data. */
 	  private GraphicalView mChartView;
+	  
+	  private static int[] COLORS = new int[] { Color.GREEN, Color.BLUE, Color.MAGENTA, Color.CYAN };
+
 
 	  private SensorManager mSensorManager;
 	  private Sensor mAccelerometer;
@@ -159,27 +162,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 
 	    mAdd.setOnClickListener(new View.OnClickListener() {
 	      public void onClick(View v) {
-	        double x = 0;
-	        double y = 0;
-	        try {
-	          x = Double.parseDouble(mX.getText().toString());
-	        } catch (NumberFormatException e) {
-	          mX.requestFocus();
-	          return;
-	        }
-	        try {
-	          y = Double.parseDouble(mY.getText().toString());
-	        } catch (NumberFormatException e) {
-	          mY.requestFocus();
-	          return;
-	        }
-	        // add a new data point to the current series
-	        mCurrentSeries.add(x, y);
-	        mX.setText("");
-	        mY.setText("");
-	        mX.requestFocus();
-	        // repaint the chart such as the newly added point to be visible
-	        mChartView.repaint();
+	        mRocketFired = false;
 	      }
 	    });
 	  }
@@ -195,7 +178,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	      mRenderer.setClickEnabled(true);
 	      mRenderer.setSelectableBuffer(10);
 	      
-	      for(int i=0;i<1;i++){
+	      for(int i=0;i<3;i++){
 	      //Add Initial Series
 	      String seriesTitle = "Series " + (mDataset.getSeriesCount() + 1);
 	        // create a new series of data
@@ -204,6 +187,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	        mCurrentSeries = series;
 	        // create a new renderer for the new series
 	        XYSeriesRenderer renderer = new XYSeriesRenderer();
+	        renderer.setColor(COLORS[i]);
 	        mRenderer.addSeriesRenderer(renderer);
 	        // set some renderer properties
 	        renderer.setPointStyle(PointStyle.CIRCLE);
@@ -214,7 +198,6 @@ public class RocketCar extends Activity implements SensorEventListener {
 	        setSeriesWidgetsEnabled(true);
 	        mChartView.repaint();
 	      }
-	      playSound(3000,1);
 	      //Initializing File
 	      writeData("x,y,z\r\n",filename);
 
@@ -318,7 +301,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 
 	public void onSensorChanged(SensorEvent event) {
 		// TODO Auto-generated method stub
-		final float alpha = (float) 0.8;
+
 
 		  // Isolate the force of gravity with the low-pass filter.
 		/*
@@ -335,9 +318,9 @@ public class RocketCar extends Activity implements SensorEventListener {
 		 */
 		float x = event.values[0];
 		float y = (-event.values[1]);
-		mXG.setText("  ");
+		mXG.setText(String.valueOf(mAngleCount)+"  ");
 		mYG.setText(String.valueOf(y)+"  ");
-		mZG.setText("  ");
+		mZG.setText(String.valueOf(mLevelCount)+"  ");
 		float z = event.values[2];
 		if (!mInitializedOld)
 		{
@@ -362,21 +345,24 @@ public class RocketCar extends Activity implements SensorEventListener {
 			if(!mReadyToDrop)
 			{
 				playSound(200,0);
-				playSound(200,0);
-				playSound(200,0);
 				mReadyToDrop = true;
-				mRocketFired = false;
+				mCurrentSeries = mDataset.getSeriesAt(2);
+		        mCurrentSeries.add(timecount, y);
+				if(mRocketFired)
+					mRocketFired = false;
 			}
 		}
 		if (mReadyToDrop)
 		{
 			if((y-mNominalVal) > 20)
 			{
-				mLevelCount++;
+					mLevelCount++;
 			}
 			else
 			{
 				mLevelCount--;
+				if(mLevelCount < 0)
+					mLevelCount = 0;
 			}
 			if(mLevelCount > 10)
 			{
@@ -384,8 +370,12 @@ public class RocketCar extends Activity implements SensorEventListener {
 				//Check for primed
 				if(!mRocketFired)
 				{
-					playSound(2000,3);
+					playSound(3000,3);
 					mRocketFired = true;
+					mCurrentSeries = mDataset.getSeriesAt(1);
+			        mCurrentSeries.add(timecount, y);
+			        mAngleCount = 0;
+			        mLevelCount = 0;
 					mReadyToDrop = false;
 				}
 			}
