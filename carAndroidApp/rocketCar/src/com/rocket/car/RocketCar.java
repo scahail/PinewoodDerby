@@ -46,12 +46,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	  private XYSeriesRenderer mCurrentRenderer;
 	  /** Button for creating a new series of data. */
 	  private Button mNewSeries;
-	  /** Button for adding entered data to the current series. */
-	  private Button mAdd;
-	  /** Edit text field for entering the X value of the data to be added. */
-	  private EditText mX;
-	  /** Edit text field for entering the Y value of the data to be added. */
-	  private EditText mY;
+	  
 	  /** The chart view that displays the data. */
 	  private GraphicalView mChartView;
 	  
@@ -116,10 +111,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	    }
 	    Calendar c = Calendar.getInstance();
 	    filename += String.valueOf(c.get(Calendar.HOUR))+"_"+String.valueOf(c.get(Calendar.MINUTE))+"_"+String.valueOf(c.get(Calendar.SECOND))+".txt";
-	    // the top part of the UI components for adding new data points
-	    mX = (EditText) findViewById(R.id.xValue);
-	    mY = (EditText) findViewById(R.id.yValue);
-	    mAdd = (Button) findViewById(R.id.add);
+	    
 	    //Gravity output texts
 	    mXG = (TextView) findViewById(R.id.xG);
 	    mYG = (TextView) findViewById(R.id.yG);
@@ -159,12 +151,6 @@ public class RocketCar extends Activity implements SensorEventListener {
 	        mChartView.repaint();
 	      }
 	    });
-
-	    mAdd.setOnClickListener(new View.OnClickListener() {
-	      public void onClick(View v) {
-	        mRocketFired = false;
-	      }
-	    });
 	  }
 
 	  protected void onResume() {
@@ -199,7 +185,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	        mChartView.repaint();
 	      }
 	      //Initializing File
-	      writeData("x,y,z\r\n",filename);
+	      //writeData("x,y,z\r\n",filename);
 
 	      //Adding Chart Click Listener
 	      mChartView.setOnClickListener(new View.OnClickListener() {
@@ -263,9 +249,7 @@ public class RocketCar extends Activity implements SensorEventListener {
 	   * @param enabled the enabled state
 	   */
 	  private void setSeriesWidgetsEnabled(boolean enabled) {
-	    mX.setEnabled(enabled);
-	    mY.setEnabled(enabled);
-	    mAdd.setEnabled(enabled);
+
 	  }
 	  public void writeData(String data,String strFilePath)
       {
@@ -390,7 +374,7 @@ public class RocketCar extends Activity implements SensorEventListener {
         mCurrentSeries = mDataset.getSeriesAt(2);
         mCurrentSeries.add(timecount, z);
        	*/
-        writeData(String.valueOf(x)+","+String.valueOf(y)+","+String.valueOf(z)+"\r\n",filename);
+        //writeData(String.valueOf(x)+","+String.valueOf(y)+","+String.valueOf(z)+"\r\n",filename);
         // repaint the chart such as the newly added point to be visible
         mChartView.repaint();
         timecount++;
