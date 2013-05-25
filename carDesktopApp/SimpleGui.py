@@ -3,7 +3,7 @@
 # arm the rocket on the car and 
 # display data. 
 # ==================================
-from Tkinter import *
+from mtTkinter import *
 
 class App:
 
