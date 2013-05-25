@@ -1,46 +1,76 @@
 #!/usr/bin/python
 # ==================================
-# The beginnings of a simple GUI to 
-# arm the rocket on the car and 
-# display data. 
+# The beginnings of a simple GUI to
+# arm the rocket on the car and
+# display data.
 # ==================================
 from Tkinter import *
-
 import threading
 import Queue
 import time
 import sys
+import tkMessageBox
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+
+from random import randint
 
 class CarGui:
 
     def __init__(self, master, endCmd):
+        # Intercept window deletion to ensure proper cleanup
+        master.protocol("WM_DELETE_WINDOW", endCmd)
+
         # Create LabelFrame for Car Data
-        data_labelframe = LabelFrame(master, text="Data From Car", padx=5, pady=5)
-        data_labelframe.pack(fill="both", expand="yes")
+        lfr_data = LabelFrame(master, text="Data From Car", padx=5, pady=5)
+        lfr_data.pack(fill="both", expand="yes")
 
-        lf_left = Label(data_labelframe, text="Inside the labelframe")
-        lf_left.pack(padx=10, pady=10)
+        self.lbl_left = Label(lfr_data, text="Inside the labelframe")
+        self.lbl_left.pack(padx=10, pady=10)
 
-        # Create Frame for Buttons
-        frame = Frame(master)
-        frame.pack()
+        # Create Frame for figure
+        fr_figure = Frame(lfr_data)
+        fr_figure.pack(fill="both", expand="yes")
+        fig = plt.figure()
 
-        self.button = Button(frame, text="QUIT", command = endCmd) 
-        self.button.pack(side=LEFT)
+        canvas  = FigureCanvasTkAgg(fig, master=fr_figure)
+        toolbar = NavigationToolbar2TkAgg(canvas, fr_figure)
+        canvas.get_tk_widget().grid(row=0, column=1)
+        toolbar.grid(row=1, column=1)
 
-        self.hi_there = Button(frame, text="ARM", command=self.arm)
-        self.hi_there.pack(side=LEFT)
+        # Create Frame for buttons
+        fr_buttons = Frame(master)
+        self.btn_quit = Button(fr_buttons, text="QUIT", command=endCmd)
+        self.btn_quit.pack(side=LEFT)
+
+        self.btn_arm = Button(fr_buttons, text="ARM", command=self.arm)
+        self.btn_arm.pack(side=LEFT)
+        fr_buttons.pack()
 
     def arm(self):
         print "CAUTION, THE CAR IS ARMED"
+        #self.lbl_left["text"] = self.lbl_left["text"] + "\n\nArmed!"
+
+        x = np.arange(0.0,3.0,0.01)
+        y = np.sin(2*np.pi*x + randint(1, 20))
+        self.plot(x, y)
+
+    def plot(self, x, y):
+        plt.clf()
+        plt.plot(x, y)
+        plt.gcf().canvas.draw()
 
     def handleMsg(self, msg):
         print msg
 
+## END class CarGui
+
+
 class CarApp:
     def __init__(self, master):
         self.master = master
-        # Create a Queue between this app and the Comms link 
+        # Create a Queue between this app and the Comms link
         self.queue = Queue.Queue()
 
         # Create the GUI
@@ -66,10 +96,10 @@ class CarApp:
         sys.exit(1)
 
     """
-    Handle Incoming messages on our queue COMMSLINK=>CARAPP(Worker), 
-    This invokes GUI processing corresponding to the received message 
-    in a new thread so we don't slow down the UI.  This thread is 
-    seperate than the main App thread!
+    Handle Incoming messages on our queue COMMSLINK=>CARAPP(Worker),
+    This invokes GUI processing corresponding to the received message
+    in a new thread so we don't slow down the UI.  This thread is
+    separate than the main App thread!
     """
     def processIncoming(self):
         print "Worker thread starting up!"
@@ -77,6 +107,8 @@ class CarApp:
             msg = self.queue.get()
             #TODO: process message
             self.gui.handleMsg(msg)
+
+## END class CarApp
 
 
 class CommsLink:
@@ -118,7 +150,11 @@ class CommsLink:
         # TODO: send a message
         print "Send Function:"
 
+## END class CommsLink
+
+
 root = Tk()
-app  = CarApp(root)
+CarApp(root)
 
 root.mainloop()
+
