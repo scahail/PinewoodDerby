@@ -17,6 +17,10 @@ class App:
 		self.hi_there = Button(frame, text="ARM", command=self.arm)
 		self.hi_there.pack(side=LEFT)
 
+		canvas = Canvas(master, width=200, height=100)
+		canvas.pack(side=TOP)
+		canvas.create_rectangle(50, 25, 150, 75)
+
 	def arm(self):
 		print "CAUTION, THE CAR IS ARMED"
 
