@@ -19,17 +19,26 @@ class App:
 
         # Create Frame for buttons
         frame = Frame(master)
-        self.button = Button(frame, text="QUIT", command = frame.quit)
-        self.button.pack(side=LEFT)
+        self.bt_quit = Button(frame, text="QUIT", command = frame.quit)
+        self.bt_quit.pack(side=LEFT)
 
-        self.hi_there = Button(frame, text="ARM", command=self.arm)
-        self.hi_there.pack(side=LEFT)
+        self.bt_arm = Button(frame, text="ARM", command=self.arm)
+        self.bt_arm.pack(side=LEFT)
         frame.pack()
 
     def arm(self):
         print "CAUTION, THE CAR IS ARMED"
 
-root = Tk()
-app  = App(root)
+## END class App
 
-root.mainloop()
+
+def main():
+    root = Tk()
+    app  = App(root)
+
+    root.mainloop()
+
+## END def main()
+
+if (__name__ == "__main__"):
+    main()
