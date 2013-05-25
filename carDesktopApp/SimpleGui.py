@@ -8,18 +8,22 @@ from Tkinter import *
 class App:
 
 	def __init__(self, master):
-		frame = Frame(master)
-		frame.pack()
 
+		# Create LabelFrame for Car Data
+		data_labelframe = LabelFrame (master, text="Data From Car", padx=5, pady=5)
+		data_labelframe.pack(fill="both", expand="yes")
+
+		lf_left = Label(data_labelframe, text="Inside the labelframe")
+		lf_left.pack(padx=10, pady=10)	
+
+		# Create Frame for buttons
+		frame = Frame(master)
 		self.button = Button(frame, text="QUIT", command = frame.quit)
 		self.button.pack(side=LEFT)
 
 		self.hi_there = Button(frame, text="ARM", command=self.arm)
 		self.hi_there.pack(side=LEFT)
-
-		canvas = Canvas(master, width=200, height=100)
-		canvas.pack(side=TOP)
-		canvas.create_rectangle(50, 25, 150, 75)
+		frame.pack()
 
 	def arm(self):
 		print "CAUTION, THE CAR IS ARMED"
