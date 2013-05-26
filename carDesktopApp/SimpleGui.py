@@ -9,10 +9,11 @@ import threading
 import Queue
 import time
 import sys
+import socket
 import tkMessageBox
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+#import matplotlib.pyplot as plt
+#from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 
 from random import randint
 
@@ -50,7 +51,7 @@ class CarGui:
 
     def arm(self):
         print "CAUTION, THE CAR IS ARMED"
-        #self.lbl_left["text"] = self.lbl_left["text"] + "\n\nArmed!"
+        self.lbl_left["text"] = self.lbl_left["text"] + "\n\nArmed!"
 
         x = np.arange(0.0,3.0,0.01)
         y = np.sin(2*np.pi*x + randint(1, 20))
@@ -78,7 +79,7 @@ class CarApp:
 
         # Setup the threads (2: comms link, worker thread)
         self.running      = 1
-        self.commsLink    = CommsLink(master, 5001, self.queue)
+        self.commsLink    = CommsLink(master, 50007, self.queue)
         self.commsThread  = threading.Thread(target=self.commsLink.connect)
         self.workerThread = threading.Thread(target=self.processIncoming)
         # Set them up as daemons
@@ -128,23 +129,26 @@ class CommsLink:
     by another thread.
     """
     def connect(self):
-        # TODO: Connect to the socket
+        # Connect to the socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(('', self.port))
+        s.listen(1)
+        conn, addr = s.accept()
+        print 'Connected by', addr
         self.connected = 1
 
         # AFter connected, receive messages until disconnected
         while (self.connected):
-            msg = self.receive()
+            msg = self.receive(conn)
+            if not msg: self.disconnect()
             self.queue.put(msg)
 
         print "Comms Link no longer connected, exiting!"
+        conn.close()
 
-    def receive(self):
-        # TODO: receive a message
-
-        # simulating message reception with sleep call
-        time.sleep(1)
-
-        return "new msg received..."
+    def receive(self, connection):
+        # Receive a message
+        return connection.recv(1024)
 
     def send(self, msg):
         # TODO: send a message
