@@ -19,7 +19,9 @@ from random import randint
 
 class CarGui:
 
-    def __init__(self, master, endCmd):
+    def __init__(self, master, endCmd, commsLink):
+        self.commsLink = commsLink
+       
         # Intercept window deletion to ensure proper cleanup
         master.protocol("WM_DELETE_WINDOW", endCmd)
 
@@ -50,6 +52,7 @@ class CarGui:
         fr_buttons.pack()
 
     def arm(self):
+        self.commsLink.send('ARM')
         print "CAUTION, THE CAR IS ARMED"
         self.lbl_left["text"] = self.lbl_left["text"] + "\n\nArmed!"
 
@@ -74,18 +77,19 @@ class CarApp:
         # Create a Queue between this app and the Comms link
         self.queue = Queue.Queue()
 
-        # Create the GUI
-        self.gui = CarGui(master, self.endApp)
-
         # Setup the threads (2: comms link, worker thread)
         self.running      = 1
-        self.commsLink    = CommsLink(master, 50007, self.queue)
+        self.commsLink    = CommsLink(master, self.queue)
         self.commsThread  = threading.Thread(target=self.commsLink.connect)
         self.workerThread = threading.Thread(target=self.processIncoming)
+        
         # Set them up as daemons
         self.commsThread.daemon = True;
         self.workerThread.daemon = True;
 
+        # Create the GUI
+        self.gui = CarGui(master, self.endApp, self.commsLink)
+        
         # Start the worker first so he is prepped to receive commands
         # then open the comms link
         self.workerThread.start()
@@ -113,12 +117,17 @@ class CarApp:
 
 
 class CommsLink:
-    def __init__(self, master, port, queue):
-        self.port  = port
-        self.queue = queue
+    def __init__(self, master, queue):
+        self.ADDR      = ''
+        self.PORT      = 50007 
+        self.queue     = queue
         self.connected = 0
+        self.socket    = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.conn      = None
 
     def disconnect(self):
+        if self.conn:
+            self.conn.close()
         self.connected = 0
 
     """
@@ -130,29 +139,30 @@ class CommsLink:
     """
     def connect(self):
         # Connect to the socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('', self.port))
-        s.listen(1)
-        conn, addr = s.accept()
+        self.socket.bind((self.ADDR, self.PORT))
+        self.socket.listen(1)
+        self.conn, addr = self.socket.accept()
         print 'Connected by', addr
         self.connected = 1
 
         # AFter connected, receive messages until disconnected
         while (self.connected):
-            msg = self.receive(conn)
-            if not msg: self.disconnect()
+            msg = self.receive()
+            if not msg:
+                print "Comms Link no longer connected, exiting!"
+                self.disconnect()
             self.queue.put(msg)
 
-        print "Comms Link no longer connected, exiting!"
-        conn.close()
+        #print "Comms Link no longer connected, exiting!"
+        #conn.close()
 
-    def receive(self, connection):
+    def receive(self):
         # Receive a message
-        return connection.recv(1024)
+        return self.conn.recv(1024)
 
     def send(self, msg):
-        # TODO: send a message
         print "Send Function:"
+        self.conn.sendall(msg)
 
 ## END class CommsLink
 
