@@ -12,9 +12,6 @@
         <TextView android:text="TextView" android:id="@+id/zG" android:layout_width="wrap_content" android:layout_height="wrap_content"></TextView>
     </LinearLayout>
 
-    <LinearLayout android:id="@+id/chart" android:orientation="horizontal"
-                  android:layout_width="fill_parent" android:layout_height="0dip" android:layout_weight="1"/>
-
     <LinearLayout android:orientation="horizontal"
                   android:layout_width="fill_parent" android:layout_height="wrap_content">
         <Button android:id="@+id/new_series" android:text="@string/new_series"
