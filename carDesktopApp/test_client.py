@@ -12,5 +12,7 @@ while 1:
    data = s.recv(1024)
    if not s.recv: break
    print data
+   if data == 'ARM':
+     print 'Would send test data'
 s.close()
 print 'Done.'

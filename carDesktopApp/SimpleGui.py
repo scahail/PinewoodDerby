@@ -13,8 +13,8 @@ import socket
 import re
 import tkMessageBox
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+#import matplotlib.pyplot as plt
+#from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 
 from random import randint
 
@@ -34,14 +34,14 @@ class CarGui:
         self.lbl_left.pack(padx=10, pady=10)
 
         # Create Frame for figure
-        fr_figure = Frame(lfr_data)
-        fr_figure.pack(fill="both", expand="yes")
-        fig = plt.figure()
-
-        canvas  = FigureCanvasTkAgg(fig, master=fr_figure)
-        toolbar = NavigationToolbar2TkAgg(canvas, fr_figure)
-        canvas.get_tk_widget().grid(row=0, column=1)
-        toolbar.grid(row=1, column=1)
+        #fr_figure = Frame(lfr_data)
+        #fr_figure.pack(fill="both", expand="yes")
+        #fig = plt.figure()
+        
+        #canvas  = FigureCanvasTkAgg(fig, master=fr_figure)
+        #toolbar = NavigationToolbar2TkAgg(canvas, fr_figure)
+        #canvas.get_tk_widget().grid(row=0, column=1)
+        #toolbar.grid(row=1, column=1)
 
         # Create Frame for buttons
         fr_buttons = Frame(master)
@@ -62,9 +62,10 @@ class CarGui:
         self.plot(x, y)
 
     def plot(self, x, y):
-        plt.clf()
-        plt.plot(x, y)
-        plt.gcf().canvas.draw()
+        print 'Would Plot Here'
+        #plt.clf()
+        #plt.plot(x, y)
+        #plt.gcf().canvas.draw()
 
     def handleMsg(self, msg):
         print 'Inside handleMsg'
@@ -167,6 +168,7 @@ class CommsLink:
     def connect(self):
         # Connect to the socket
         self.socket.bind((self.ADDR, self.PORT))
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.listen(1)
         self.conn, addr = self.socket.accept()
         print 'Connected by', addr
@@ -186,7 +188,7 @@ class CommsLink:
 
     def receive(self):
         # Receive a message
-        return self.conn.recv(1024)
+        return self.conn.recv(20)
 
     def send(self, msg):
         print "Send Function:"

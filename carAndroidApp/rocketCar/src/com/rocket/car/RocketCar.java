@@ -6,12 +6,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Calendar;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -29,7 +33,6 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
@@ -64,7 +67,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	  private boolean mInitializedOld = false;
 	  
 	  //Launch Detection Params
-	  private float mNominalVal = 115;
+	  private float mNominalVal = -115;
 	  private int mAngleCount = 0;
 	  private int mLevelCount = 0;
 	  private boolean mReadyToDrop = false;
@@ -74,6 +77,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	  private NetworkTask mNetTask;
 	  private Button mConnectButton;
 	  private boolean mSocketOpened = false;
+	  private boolean mRocketArmed = false;
 	  
 	  //GPS
 	  private LocationManager mLocationManager;
@@ -101,6 +105,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	    {
 	    	mAccelerometer =  mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
 	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_UI);
+	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), SensorManager.SENSOR_DELAY_NORMAL);
 	    }
 	    else
 	    {
@@ -108,7 +113,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	    }
 	    Calendar c = Calendar.getInstance();
 	    filename += String.valueOf(c.get(Calendar.HOUR))+"_"+String.valueOf(c.get(Calendar.MINUTE))+"_"+String.valueOf(c.get(Calendar.SECOND))+".txt";
-	    
+	    filename ="rocketcar.txt";
 	    mLocationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 	    
 	    //Setup Network Task
@@ -119,9 +124,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 		    	  getIP();
 		  	      mNetTask.execute();
 		  	      mSocketOpened =true;
-		  	      Intent svc = new Intent(RocketCar.this, AccelService.class);
-		          startService(svc);
-		  	      //mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, RocketCar.this);
+		  	      mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, RocketCar.this);
 		      }
 		    });
 	    mSocketOut = (TextView) findViewById(R.id.sockOut);
@@ -142,7 +145,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	  protected void onResume() {
 	    super.onResume();
 	    //Sensor Management
-	    mSensorManager.registerListener(this, mAccelerometer,SensorManager.SENSOR_DELAY_GAME);
+	    mSensorManager.registerListener(this, mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
 	      //Initializing File
 	      //writeData("x,y,z\r\n",filename);
 	  }
@@ -212,7 +215,11 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	{
 		// TODO Auto-generated method stub
 	}
-
+	public void armRocket()
+	{
+		Toast.makeText(RocketCar.this, "Rocket Armed", Toast.LENGTH_SHORT).show();
+		mRocketArmed = true;
+	}
 	public void onSensorChanged(SensorEvent event) {
 		// TODO Auto-generated method stub
 		if (event.sensor.getType() == Sensor.TYPE_ORIENTATION)
@@ -228,7 +235,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 				mInitializedOld = true;
 			}
 			//Get the steady State of Car before drop
-			if(y > 100 && y < 130 && !mReadyToDrop && mAngleCount < 0)
+			if(y > (mNominalVal-15) && y < (mNominalVal+15) && !mReadyToDrop && mAngleCount < 0)
 			{
 				mAngleCount = 0;
 			}
@@ -244,7 +251,9 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 			{
 				if(!mReadyToDrop)
 				{
-					playSound(200,0);
+					if(mSocketOpened)
+						mNetTask.SendDataToNetwork("READY TO DROP");
+					//playSound(200,0);
 					mReadyToDrop = true;
 					if(mRocketFired)
 						mRocketFired = false;
@@ -252,7 +261,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 			}
 			if (mReadyToDrop)
 			{
-				if((y-mNominalVal) > 20)
+				if((mNominalVal-y) > 20)
 				{
 						mLevelCount++;
 				}
@@ -265,17 +274,23 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 				if(mLevelCount > 10)
 				{
 					//Check for primed
-					if(!mRocketFired)
+					if(!mRocketFired && mRocketArmed)
 					{
-						playSound(1000,3);
+						playSound(3000,0);
 						mRocketFired = true;
 				        mAngleCount = 0;
 				        mLevelCount = 0;
 						mReadyToDrop = false;
+						mRocketArmed = false;
 					}
 				}
 		        timecount++;
 			}
+		}
+		if(event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
+		{
+			if(mSocketOpened)
+				mNetTask.SendDataToNetwork(String.format("ACC:%+5.2f", event.values[1]));
 		}
 	}
 	
@@ -284,7 +299,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
         Socket nsocket; //Network Socket
         InputStream nis; //Network Input Stream
         OutputStream nos; //Network Output Stream
-        private String mIP = "10.226.34.130";
+        private String mIP = (String) getText(R.string.ipaddr);
         @Override
         protected void onPreExecute() {
             mLog("onPreExecute");
@@ -310,9 +325,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
                         byte[] tempdata = new byte[read];
                         System.arraycopy(buffer, 0, tempdata, 0, read);
                         publishProgress(tempdata);
-                        mLog("doInBackground: Got some data");
                         read = nis.read(buffer, 0, 4096); //This is blocking
-                        writeData("Got Some Bytes"+String.valueOf(read),filename);
                     }
                 }
             } catch (IOException e) {
@@ -344,7 +357,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
         public void SendDataToNetwork(String cmd) { //You run this from the main thread.
             try {
                 if (nsocket.isConnected()) {
-                	mLog("SDTN: Write:"+cmd);
+                	//mLog("SDTN: Write:"+cmd);
                     nos.write(cmd.getBytes());
                 } else {
                 	mLog("SendDataToNetwork: Cannot send message. Socket is closed");
@@ -358,6 +371,24 @@ public class RocketCar extends Activity implements SensorEventListener, Location
         protected void onProgressUpdate(byte[]... values) {
             if (values.length > 0) {
             	mLog("onProgressUpdate: " + values[0].length + " bytes received.");
+                String data = null;
+				try {
+					data = new String(values[0],"UTF-8");
+				} catch (UnsupportedEncodingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					mLog("Encoding Exception");
+				}
+				if(data != null)
+				{
+	                mLog(data);
+	                if (data.contains("ARM"))
+	                {
+	                	armRocket();
+	                	//playSound(2000,0);
+	                	SendDataToNetwork("CONFIRM ARMED");
+	                }
+				}
             }
         }
         @Override
@@ -373,52 +404,6 @@ public class RocketCar extends Activity implements SensorEventListener, Location
             }
         }
     }
-	private class AccelService extends Service implements SensorEventListener
-	{
-		private Sensor mLinearAcceleration;
-		private SensorManager mSensorManager; 
-
-		@Override
-		public IBinder onBind(Intent arg0) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-		@Override
-		public void onCreate()
-		{
-			super.onCreate();
-			mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-			if (mSensorManager != null)
-		    {
-				mLinearAcceleration = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-		    	mSensorManager.registerListener(this, mLinearAcceleration, SensorManager.SENSOR_DELAY_NORMAL);
-		    	Toast.makeText(RocketCar.this, "Lin Accel Sensor Started", Toast.LENGTH_SHORT).show();
-		    }
-		    else
-		    {
-		    	Toast.makeText(RocketCar.this, "No Sensor Service", Toast.LENGTH_SHORT).show();
-		    }
-		}
-		
-		@Override
-		public void onDestroy()
-		{
-			mSensorManager.unregisterListener(this);
-			super.onDestroy();
-		}
-		public void onAccuracyChanged(Sensor sensor, int accuracy) {
-			// TODO Auto-generated method stub
-			
-		}
-		public void onSensorChanged(SensorEvent event) {
-			if(event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
-			{
-				if(mSocketOpened)
-					mNetTask.SendDataToNetwork(String.format("%.2f", event.values[1]*0.453592));
-			}
-		}
-	}
-	/*End Of AccelService*/
 	protected void onDestroy()
 	{
 		super.onDestroy();
@@ -426,10 +411,10 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	}
 
 	public void onLocationChanged(Location location) {
-		String newLatitude = Double.toString(location.getLatitude());
-		String newLongitude = Double.toString(location.getLongitude());
+		//String newLatitude = Double.toString(location.getLatitude());
+		//String newLongitude = Double.toString(location.getLongitude());
 		//if(mSocketOpened)
-		//	mNetTask.SendDataToNetwork("LAT:"+newLatitude+" LONG:"+newLongitude);
+			//mNetTask.SendDataToNetwork(String.format("LAT:%+5.2f LON:%+5.2f", newLatitude,newLongitude));
 	}
 
 	public void onProviderDisabled(String provider) {
