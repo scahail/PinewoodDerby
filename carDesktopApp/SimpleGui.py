@@ -13,15 +13,18 @@ import socket
 import re
 import tkMessageBox
 import numpy as np
-#import matplotlib.pyplot as plt
-#from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 
 from random import randint
 
 class CarGui:
 
     def __init__(self, master, endCmd, commsLink):
-        self.commsLink = commsLink
+        self.commsLink  = commsLink
+        self.accel_list = []
+        self.lat_list   = []
+        self.lon_list   = []
        
         # Intercept window deletion to ensure proper cleanup
         master.protocol("WM_DELETE_WINDOW", endCmd)
@@ -34,14 +37,14 @@ class CarGui:
         self.lbl_left.pack(padx=10, pady=10)
 
         # Create Frame for figure
-        #fr_figure = Frame(lfr_data)
-        #fr_figure.pack(fill="both", expand="yes")
-        #fig = plt.figure()
+        fr_figure = Frame(lfr_data)
+        fr_figure.pack(fill="both", expand="yes")
+        fig = plt.figure()
         
-        #canvas  = FigureCanvasTkAgg(fig, master=fr_figure)
-        #toolbar = NavigationToolbar2TkAgg(canvas, fr_figure)
-        #canvas.get_tk_widget().grid(row=0, column=1)
-        #toolbar.grid(row=1, column=1)
+        canvas  = FigureCanvasTkAgg(fig, master=fr_figure)
+        toolbar = NavigationToolbar2TkAgg(canvas, fr_figure)
+        canvas.get_tk_widget().grid(row=0, column=1)
+        toolbar.grid(row=1, column=1)
 
         # Create Frame for buttons
         fr_buttons = Frame(master)
@@ -57,19 +60,27 @@ class CarGui:
         print "CAUTION, THE CAR IS ARMED"
         self.lbl_left["text"] = self.lbl_left["text"] + "\n\nArmed!"
 
-        x = np.arange(0.0,3.0,0.01)
-        y = np.sin(2*np.pi*x + randint(1, 20))
-        self.plot(x, y)
-
     def plot(self, x, y):
-        print 'Would Plot Here'
-        #plt.clf()
-        #plt.plot(x, y)
-        #plt.gcf().canvas.draw()
+        plt.clf()
+        plt.plot(x, y)
+        plt.gcf().canvas.draw()
+
+    def plot_latlong(self, x1, y1, x2, y2):
+        plt.clf()
+        plt.plot(x1, y1, x2, y2)
+        plt.gcf().canvas.draw()
 
     def handleMsg(self, msg):
-       pass
-       # print msg
+        if (len(msg) == 1):
+            self.accel_list += [msg[0]]
+            if (len(self.accel_list) % 20) == 0:
+                self.plot(list(xrange(len(self.accel_list))), self.accel_list)
+        elif (len(msg) == 2):
+            self.lat_list += [msg[0]]
+            self.lon_list += [msg[1]]
+            latlong_axes = list(xrange(len(self.lat_list)))
+            self.plot_latlong(latlong_axes, self.lat_list, latlong_axes, self.lon_list)
+
 
 
 ## END class CarGui
@@ -114,17 +125,19 @@ class CarApp:
         print "Worker thread starting up!"
         while self.running:
             msg = self.queue.get()
-            #TODO: process message
+    
             # Check for different possible message types,
             # have a match object for each one.
-
             # Match object for Latitude, Longitude messages
-            matchLatLong = re.match( r'LAT:(\d+)\sLONG:(\d+)', msg)
+            matchLatLong = re.match( r'LAT:([\-+]\d+\.\d+)\sLON:([\-+]\d+\.\d+)', msg)
 
             # Match object for acceleration messages
-            matchAccel = re.match(r'ACCEL:(\d+)', msg)
+            matchAccel = re.match(r'ACC:([\-+]\d+\.\d+)', msg)
 
-            self.gui.handleMsg(msg)
+            if matchAccel:
+                self.gui.handleMsg([float(matchAccel.group(1))])
+            elif matchLatLong:    
+                self.gui.handleMsg([float(matchLatLong.group(1)), float(matchLatLong.group(2))])
 
 ## END class CarApp
 
@@ -159,27 +172,22 @@ class CommsLink:
         print 'Connected by', addr
         self.connected = 1
 
-        # AFter connected, receive messages until disconnected
+        # After connected, receive messages until disconnected
         while (self.connected):
             msg = self.receive()
-            if (msg[0] != 'A'):
-                print msg
             if not msg:
                 print "Comms Link no longer connected, exiting!"
                 self.connected = 0
                 #self.disconnect()
-            #print "Print msg in connect() while loop: " + msg
+            if not ':' in msg:
+                print msg
             self.queue.put(msg)
-
-        #print "Comms Link no longer connected, exiting!"
-        #conn.close()
 
     def receive(self):
         # Receive a message
         return self.conn.recv(20)
 
     def send(self, msg):
-        print "Send Function:"
         self.conn.sendall(msg)
 
 ## END class CommsLink
