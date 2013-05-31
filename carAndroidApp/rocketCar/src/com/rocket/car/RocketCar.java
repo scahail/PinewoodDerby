@@ -239,7 +239,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 			{
 				mAngleCount = 0;
 			}
-			if (Math.abs(y-mNominalVal) < 5)
+			if (Math.abs(y-mNominalVal) < 15)
 			{
 				mAngleCount++;
 			}
