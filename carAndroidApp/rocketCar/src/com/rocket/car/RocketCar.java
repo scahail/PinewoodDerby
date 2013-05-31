@@ -222,11 +222,20 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 		mRocketArmed = true;
 		mRocketFired = false;
 	}
+	public void resetAll()
+	{
+		Toast.makeText(RocketCar.this, "Rocket Armed", Toast.LENGTH_SHORT).show();
+		mRocketArmed = false;
+		mRocketFired = false;
+		mReadyToDrop = false;
+		mAngleCount = 0;
+		mLevelCount = 0;
+	}
 	public void onSensorChanged(SensorEvent event) {
 		// TODO Auto-generated method stub
 		if (event.sensor.getType() == Sensor.TYPE_ORIENTATION)
 		{
-			float x = event.values[0];
+			//float x = event.values[0];
 			float y = (-event.values[1]);
 			if(y>0)
 				y-=360;
@@ -234,11 +243,8 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 			//mYG.setText(String.valueOf(y)+"  ");
 			//mZG.setText(String.valueOf(mLevelCount)+"  ");
 			//Log.d("LEVELCNT",String.valueOf(mLevelCount));
-			float z = event.values[2];
-			if (!mInitializedOld)
-			{
-				mInitializedOld = true;
-			}
+			//float z = event.values[2];
+			
 			//Get the steady State of Car before drop
 			if(y > (mNominalVal-15) && y < (mNominalVal+15)  && mAngleCount < 0)
 			{
@@ -392,6 +398,10 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	                	armRocket();
 	                	//playSound(2000,0);
 	                	SendDataToNetwork("CONFIRM ARMED");
+	                }
+	                else if (data.contains("RESET"))
+	                {
+	                	resetAll();
 	                }
 				}
             }
