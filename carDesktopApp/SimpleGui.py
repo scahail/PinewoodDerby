@@ -33,7 +33,7 @@ class CarGui:
         lfr_data = LabelFrame(master, text="Data From Car", padx=5, pady=5)
         lfr_data.pack(fill="both", expand="yes")
 
-        self.lbl_left = Label(lfr_data, text="Inside the labelframe")
+        self.lbl_left = Label(lfr_data, text="Car unarmed")
         self.lbl_left.pack(padx=10, pady=10)
 
         # Create Frame for figure
@@ -58,7 +58,7 @@ class CarGui:
     def arm(self):
         self.commsLink.send('ARM')
         print "CAUTION, THE CAR IS ARMED"
-        self.lbl_left["text"] = self.lbl_left["text"] + "\n\nArmed!"
+        self.lbl_left["text"] = "Armed!"
 
     def plot(self, x, y):
         plt.clf()
