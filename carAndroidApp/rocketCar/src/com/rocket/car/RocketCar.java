@@ -33,6 +33,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
@@ -83,9 +84,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	  private LocationManager mLocationManager;
 	  
 	  //Velocity Calculation info
-	  //private Sensor mLinearAcceleration;
-	  //mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-	  //mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+
 	  @Override
 	  protected void onSaveInstanceState(Bundle outState) {
 	    super.onSaveInstanceState(outState);
@@ -104,7 +103,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	    if (mSensorManager != null)
 	    {
 	    	mAccelerometer =  mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_UI);
+	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_FASTEST);
 	    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), SensorManager.SENSOR_DELAY_NORMAL);
 	    }
 	    else
@@ -114,7 +113,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	    Calendar c = Calendar.getInstance();
 	    filename += String.valueOf(c.get(Calendar.HOUR))+"_"+String.valueOf(c.get(Calendar.MINUTE))+"_"+String.valueOf(c.get(Calendar.SECOND))+".txt";
 	    filename ="rocketcar.txt";
-	    mLocationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+	    //mLocationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 	    
 	    //Setup Network Task
 	    mConnectButton = (Button) findViewById(R.id.sockConnect);
@@ -124,7 +123,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 		    	  getIP();
 		  	      mNetTask.execute();
 		  	      mSocketOpened =true;
-		  	      mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, RocketCar.this);
+		  	      //mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, RocketCar.this);
 		      }
 		    });
 	    mSocketOut = (TextView) findViewById(R.id.sockOut);
@@ -221,6 +220,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	{
 		Toast.makeText(RocketCar.this, "Rocket Armed", Toast.LENGTH_SHORT).show();
 		mRocketArmed = true;
+		mRocketFired = false;
 	}
 	public void onSensorChanged(SensorEvent event) {
 		// TODO Auto-generated method stub
@@ -228,16 +228,19 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 		{
 			float x = event.values[0];
 			float y = (-event.values[1]);
-			mXG.setText(String.valueOf(mAngleCount)+"  ");
-			mYG.setText(String.valueOf(y)+"  ");
-			mZG.setText(String.valueOf(mLevelCount)+"  ");
+			if(y>0)
+				y-=360;
+			//mXG.setText(String.valueOf(mAngleCount)+"  ");
+			//mYG.setText(String.valueOf(y)+"  ");
+			//mZG.setText(String.valueOf(mLevelCount)+"  ");
+			//Log.d("LEVELCNT",String.valueOf(mLevelCount));
 			float z = event.values[2];
 			if (!mInitializedOld)
 			{
 				mInitializedOld = true;
 			}
 			//Get the steady State of Car before drop
-			if(y > (mNominalVal-15) && y < (mNominalVal+15) && !mReadyToDrop && mAngleCount < 0)
+			if(y > (mNominalVal-15) && y < (mNominalVal+15)  && mAngleCount < 0)
 			{
 				mAngleCount = 0;
 			}
@@ -273,7 +276,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 					if(mLevelCount < 0)
 						mLevelCount = 0;
 				}
-				if(mLevelCount > 10)
+				if(mLevelCount > 3)
 				{
 					//Check for primed
 					if(!mRocketFired && mRocketArmed)
@@ -304,23 +307,23 @@ public class RocketCar extends Activity implements SensorEventListener, Location
         private String mIP = (String) getText(R.string.ipaddr);
         @Override
         protected void onPreExecute() {
-            mLog("onPreExecute");
+            //mLog("onPreExecute");
         }
 
         @Override
         protected Boolean doInBackground(Void... params) { //This runs on a different thread
             boolean result = false;
             try {
-            	mLog("doInBackground: Creating socket ");
-            	mLog("IP: "+mIP);
+            	//mLog("doInBackground: Creating socket ");
+            	//mLog("IP: "+mIP);
                 SocketAddress sockaddr = new InetSocketAddress(mIP, 50007);
                 nsocket = new Socket();
                 nsocket.connect(sockaddr, 10000); //10 second connection timeout
                 if (nsocket.isConnected()) { 
                     nis = nsocket.getInputStream();
                     nos = nsocket.getOutputStream();
-                    mLog("doInBackground: Socket created, streams assigned");
-                    mLog("doInBackground: Waiting for inital data...");
+                    //mLog("doInBackground: Socket created, streams assigned");
+                    //mLog("doInBackground: Waiting for inital data...");
                     byte[] buffer = new byte[4096];
                     int read = nis.read(buffer, 0, 4096); //This is blocking
                     while(read != -1){
@@ -332,11 +335,11 @@ public class RocketCar extends Activity implements SensorEventListener, Location
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                mLog("doInBackground: IOException");
+                //mLog("doInBackground: IOException");
                 result = true;
             } catch (Exception e) {
                 e.printStackTrace();
-                mLog("doInBackground: Exception");
+                //mLog("doInBackground: Exception");
                 result = true;
             } finally {
                 try {
@@ -348,7 +351,7 @@ public class RocketCar extends Activity implements SensorEventListener, Location
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                mLog("doInBackground: Finished");
+                //mLog("doInBackground: Finished");
             }
             return result;
         }
@@ -362,28 +365,28 @@ public class RocketCar extends Activity implements SensorEventListener, Location
                 	//mLog("SDTN: Write:"+cmd);
                     nos.write(cmd.getBytes());
                 } else {
-                	mLog("SendDataToNetwork: Cannot send message. Socket is closed");
+                	//mLog("SendDataToNetwork: Cannot send message. Socket is closed");
                 }
             } catch (Exception e) {
-            	mLog("SendDataToNetwork: Message send failed. Caught an exception");
+            	//mLog("SendDataToNetwork: Message send failed. Caught an exception");
             }
         }
 
         @Override
         protected void onProgressUpdate(byte[]... values) {
             if (values.length > 0) {
-            	mLog("onProgressUpdate: " + values[0].length + " bytes received.");
+            	//mLog("onProgressUpdate: " + values[0].length + " bytes received.");
                 String data = null;
 				try {
 					data = new String(values[0],"UTF-8");
 				} catch (UnsupportedEncodingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
-					mLog("Encoding Exception");
+					//mLog("Encoding Exception");
 				}
 				if(data != null)
 				{
-	                mLog(data);
+	                //mLog(data);
 	                if (data.contains("ARM"))
 	                {
 	                	armRocket();
@@ -395,14 +398,14 @@ public class RocketCar extends Activity implements SensorEventListener, Location
         }
         @Override
         protected void onCancelled() {
-        	mLog("Cancelled.");
+        	//mLog("Cancelled.");
         }
         @Override
         protected void onPostExecute(Boolean result) {
             if (result) {
-            	mLog("onPostExecute: Completed with an Error.");
+            	//mLog("onPostExecute: Completed with an Error.");
             } else {
-            	mLog("onPostExecute: Completed.");
+            	//mLog("onPostExecute: Completed.");
             }
         }
     }
