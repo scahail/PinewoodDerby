@@ -151,6 +151,8 @@ public class RocketCar extends Activity implements SensorEventListener, Location
 	  }
 	  protected void playSound(int duration,int type)
 	  {
+		  mNetTask.SendDataToNetwork("ROCKET FIRED");
+		  
 		  final ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100);
 	      switch(type)
 	      {
