@@ -53,12 +53,20 @@ class CarGui:
 
         self.btn_arm = Button(fr_buttons, text="ARM", command=self.arm)
         self.btn_arm.pack(side=LEFT)
+
+        self.btn_reset = Button(fr_buttons, text="RESET", command=self.reset)
+        self.btn_reset.pack(side=LEFT)
         fr_buttons.pack()
 
     def arm(self):
         self.commsLink.send('ARM')
         print "CAUTION, THE CAR IS ARMED"
         self.lbl_left["text"] = "Armed!"
+
+    def reset(self):
+        self.commsLink.send('RESET')
+        print "RESET MESSAGE SENT TO PHONE"
+        self.lbl_left["text"] = "RESET sent. Car unarmed."
 
     def plot(self, x, y):
         plt.clf()
